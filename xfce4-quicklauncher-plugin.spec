@@ -1,22 +1,21 @@
 Summary:	Multiline launcher plugin for Xfce panel
 Summary(pl):	Wieloliniowa wtyczka do uruchamiania dla panelu Xfce
 Name:		xfce4-quicklauncher-plugin
-Version:	0.81
-Release:	0.1
+Version:	1.9.2
+Release:	1
 License:	GPL v2+
 Group:		X11/Applications
-Source0:	http://download.berlios.de/xfce-goodies/%{name}-%{version}.tar.gz
-# Source0-md5:	98231ea7afe226ca7cbdc5c51ea3d16e
-URL:		http://xfce-goodies.berlios.de/
+Source0:	http://goodies.xfce.org/releases/xfce4-quicklauncher-plugin/%{name}-%{version}.tar.bz2
+# Source0-md5:	64353ee9f32f891f198297937454307b
+URL:		http://goodies.xfce.org/projects/panel-plugins/xfce4-quicklauncher-plugin
 BuildRequires:	autoconf
 BuildRequires:	automake
 BuildRequires:	gettext-devel
 BuildRequires:	libtool
-BuildRequires:	libxfce4util-devel >= 3.99
-BuildRequires:	libxfcegui4-devel >= 3.99
 BuildRequires:	pkgconfig
-BuildRequires:	xfce4-panel-devel >= 4.1.9.0
-Requires:	xfce4-panel >= 4.1.9.0
+BuildRequires:	xfce4-dev-tools >= 4.4.0
+BuildRequires:	xfce4-panel-devel >= 4.4.0
+Requires:	xfce4-panel >= 4.4.0
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %description
@@ -31,12 +30,11 @@ panelu, wy¶wietlaj±c je w kilku liniach.
 %setup -q
 
 %build
-cp -f /usr/share/automake/config.sub .
 %{__libtoolize}
-%{__aclocal} -I m4
+%{__aclocal}
+%{__autoconf}
 %{__autoheader}
 %{__automake}
-%{__autoconf}
 %configure \
 	--disable-static
 
@@ -57,5 +55,6 @@ rm -rf $RPM_BUILD_ROOT
 
 %files -f %{name}.lang
 %defattr(644,root,root,755)
-%doc ChangeLog TODO
+%doc AUTHORS ChangeLog TODO
 %attr(755,root,root) %{_libdir}/xfce4/panel-plugins/*.so
+%{_datadir}/xfce4/panel-plugins/*.desktop
