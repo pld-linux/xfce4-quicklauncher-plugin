@@ -1,5 +1,5 @@
 Summary:	Multiline launcher plugin for Xfce panel
-Summary(pl):	Wieloliniowa wtyczka do uruchamiania dla panelu Xfce
+Summary(pl.UTF-8):   Wieloliniowa wtyczka do uruchamiania dla panelu Xfce
 Name:		xfce4-quicklauncher-plugin
 Version:	1.9.2
 Release:	1
@@ -22,9 +22,9 @@ BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 This plugin allows you to have lots of launchers in the panel,
 displaying them on several lines.
 
-%description -l pl
-Ta wtyczka umo¿liwia posiadanie wielu narzêdzi do uruchamiania w
-panelu, wy¶wietlaj±c je w kilku liniach.
+%description -l pl.UTF-8
+Ta wtyczka umoÅ¼liwia posiadanie wielu narzÄ™dzi do uruchamiania w
+panelu, wyÅ›wietlajÄ…c je w kilku liniach.
 
 %prep
 %setup -q
