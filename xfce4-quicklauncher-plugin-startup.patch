@@ -1,0 +1,11 @@
+Index: xfce4-quicklauncher-plugin-1.9.4/panel-plugin/quicklauncher.desktop.in.in
+===================================================================
+--- xfce4-quicklauncher-plugin-1.9.4.orig/panel-plugin/quicklauncher.desktop.in.in	2009-03-06 10:24:24.000000000 +0100
++++ xfce4-quicklauncher-plugin-1.9.4/panel-plugin/quicklauncher.desktop.in.in	2009-03-06 10:24:40.000000000 +0100
+@@ -4,4 +4,5 @@
+ _Name=Quicklauncher
+ _Comment=Program with several launchers
+ Icon=gnome-fs-executable
+-X-XFCE-Module=@INTERNAL_PLUGIN_PATH@/libquicklauncher.so
++X-XFCE-Module=quicklauncher
++X-XFCE-Module-Path=@INTERNAL_PLUGIN_PATH@
