@@ -1,0 +1,484 @@
+diff -ur xfce4-quicklauncher-plugin-1.9.4-orig/config.h.in xfce4-quicklauncher-plugin-1.9.4/config.h.in
+--- xfce4-quicklauncher-plugin-1.9.4-orig/config.h.in	2007-06-27 21:07:12.000000000 +0200
++++ xfce4-quicklauncher-plugin-1.9.4/config.h.in	2011-03-01 13:19:36.000000000 +0100
+@@ -57,6 +57,10 @@
+ /* Define to 1 if you have the <unistd.h> header file. */
+ #undef HAVE_UNISTD_H
+ 
++/* Define to the sub-directory in which libtool stores uninstalled libraries.
++   */
++#undef LT_OBJDIR
++
+ /* Name of package */
+ #undef PACKAGE
+ 
+@@ -72,21 +76,39 @@
+ /* Define to the one symbol short name of this package. */
+ #undef PACKAGE_TARNAME
+ 
++/* Define to the home page for this package. */
++#undef PACKAGE_URL
++
+ /* Define to the version of this package. */
+ #undef PACKAGE_VERSION
+ 
+ /* Define to 1 if you have the ANSI C header files. */
+ #undef STDC_HEADERS
+ 
+-/* Version number of package */
+-#undef VERSION
+-
+-/* Define to 1 if on AIX 3.
+-   System headers sometimes define this.
+-   We just want to avoid a redefinition error message.  */
++/* Enable extensions on AIX 3, Interix.  */
+ #ifndef _ALL_SOURCE
+ # undef _ALL_SOURCE
+ #endif
++/* Enable GNU extensions on systems that have them.  */
++#ifndef _GNU_SOURCE
++# undef _GNU_SOURCE
++#endif
++/* Enable threading extensions on Solaris.  */
++#ifndef _POSIX_PTHREAD_SEMANTICS
++# undef _POSIX_PTHREAD_SEMANTICS
++#endif
++/* Enable extensions on HP NonStop.  */
++#ifndef _TANDEM_SOURCE
++# undef _TANDEM_SOURCE
++#endif
++/* Enable general extensions on Solaris.  */
++#ifndef __EXTENSIONS__
++# undef __EXTENSIONS__
++#endif
++
++
++/* Version number of package */
++#undef VERSION
+ 
+ /* Define to 1 if on MINIX. */
+ #undef _MINIX
+diff -ur xfce4-quicklauncher-plugin-1.9.4-orig/configure.ac xfce4-quicklauncher-plugin-1.9.4/configure.ac
+--- xfce4-quicklauncher-plugin-1.9.4-orig/configure.ac	2007-06-27 21:01:50.000000000 +0200
++++ xfce4-quicklauncher-plugin-1.9.4/configure.ac	2011-03-02 12:01:15.825812022 +0100
+@@ -32,8 +32,9 @@
+ AC_PROG_LIBTOOL
+ 
+ dnl configure the panel plugin
++XDT_CHECK_PACKAGE([EXO], [exo-1], [0.6.0])
+ XDT_CHECK_PACKAGE([LIBXFCE4PANEL], [libxfce4panel-1.0], [4.3.20])
+-XDT_CHECK_PACKAGE([LIBXFCEGUI4], [libxfcegui4-1.0], [4.3.20])
++XDT_CHECK_PACKAGE([LIBXFCE4UI], [libxfce4ui-1], [4.8.0])
+ 
+ dnl Check for debugging support
+ XDT_FEATURE_DEBUG()
+diff -ur xfce4-quicklauncher-plugin-1.9.4-orig/panel-plugin/callbacks.c xfce4-quicklauncher-plugin-1.9.4/panel-plugin/callbacks.c
+--- xfce4-quicklauncher-plugin-1.9.4-orig/panel-plugin/callbacks.c	2007-06-09 22:50:08.000000000 +0200
++++ xfce4-quicklauncher-plugin-1.9.4/panel-plugin/callbacks.c	2011-03-02 12:37:13.068548764 +0100
+@@ -25,7 +25,8 @@
+ #endif
+ 
+ #include <string.h>
+-#include <libxfcegui4/icons.h>
++#include <exo/exo.h>
++#include <libxfce4ui/libxfce4ui.h>
+ 
+ #include "callbacks.h"
+ #include "avoid_deprecation.h"
+@@ -33,12 +34,9 @@
+ 
+ 
+ static t_qck_launcher_opt_dlg *_dlg = NULL;
+-static GtkWidget  *_icon_window = NULL;
+ 
+-GtkWidget* create_icon_window();
+-void show_icon_window( GtkTreeView *treeview, GtkTreePath *arg1,
+-						GtkTreeViewColumn *arg2, gpointer user_data);
+-void btn_clicked(GtkButton *button, gpointer icon_id);
++void show_icon_window( GtkTreeView *treeview, GtkTreePath *path,
++			GtkTreeViewColumn *column, gpointer user_data);
+ void on_spin_value_changed(GtkSpinButton *spinbutton, gpointer user_data);
+ void on_btn_new_clicked(GtkButton *button, gpointer user_data);
+ void on_btn_remove_clicked(GtkButton *button, gpointer user_data);
+@@ -72,8 +70,7 @@
+ //******************************************************************************
+ t_qck_launcher_opt_dlg* create_qck_launcher_dlg()
+ {
+-  g_return_val_if_fail( !(_dlg || _icon_window), NULL);
+-  _icon_window = create_icon_window();
++  g_return_val_if_fail( !(_dlg), NULL);
+   _dlg = (t_qck_launcher_opt_dlg *) g_new0(t_qck_launcher_opt_dlg, 1);
+ 
+   _dlg->dialog = gtk_dialog_new_with_buttons (_("Configure Quicklauncher"), NULL,
+@@ -236,13 +233,13 @@
+ 	{
+ 		launcher = i->data;
+ 		gtk_list_store_insert(GTK_LIST_STORE(treemodel), &iter, 0);
+-		pixbuf = _create_pixbuf(launcher->icon_id, launcher->icon_name, 16);
++		pixbuf = _create_pixbuf(launcher->icon_name, 16);
+ 		gtk_list_store_set(GTK_LIST_STORE(treemodel), &iter, 0, pixbuf,
+ 							1,  launcher->command, 2, launcher->name, 3,(gpointer)launcher, -1);
+ 		UNREF(pixbuf);
+ 	}
+ 	g_signal_connect(_dlg->treeview1, "row-activated",
+-					G_CALLBACK(show_icon_window), NULL);
++					G_CALLBACK(show_icon_window), launcher);
+ 	g_signal_connect((gpointer)_dlg->spin1, "value-changed",
+ 					G_CALLBACK (on_spin_value_changed), NULL);
+ 	g_signal_connect ((gpointer) _dlg->btn_new, "clicked",
+@@ -266,137 +263,68 @@
+ free_qck_launcher_dlg(GtkDialog *dialog, gint arg1, gpointer user_data)
+ {
+ 	g_print("destroy\n");
+-	if (_icon_window)
+-	{
+-		gtk_widget_destroy(_icon_window);
+-		_icon_window = NULL;
+-	}
+ 	gtk_widget_hide(_dlg->dialog);
+ 	gtk_widget_destroy(_dlg->dialog);
+ 	g_free(_dlg);
+ 	_dlg = NULL;
+ }
+ 
+-
+-GtkWidget* create_icon_window()
+-{
+-	GtkWidget *hbox, *btn;
+-	GdkPixbuf *pixbuf;
+-	gint i;
+-
+-	_icon_window = gtk_window_new(GTK_WINDOW_POPUP);
+-	hbox = gtk_hbox_new(FALSE, 0);
+-	gtk_container_add(GTK_CONTAINER(_icon_window), hbox);
+-	for(i=0; i < XFCE_N_BUILTIN_ICON_CATEGORIES; ++i)
+-	{
+-		pixbuf = xfce_themed_icon_load_category(i, 16);
+-		btn = xfce_iconbutton_new();
+-		gtk_button_set_relief (GTK_BUTTON (btn), GTK_RELIEF_NONE);
+-		xfce_iconbutton_set_pixbuf(XFCE_ICONBUTTON (btn), pixbuf);
+-		UNREF(pixbuf);
+-		gtk_box_pack_start(GTK_BOX(hbox), btn, TRUE, TRUE, 1);
+-		g_signal_connect(btn, "clicked", G_CALLBACK(btn_clicked), (gpointer)i);
+-		g_signal_connect_swapped(btn, "clicked", G_CALLBACK(gtk_widget_hide), (gpointer)_icon_window);
+-		gtk_widget_show(btn);
+-	}
+-	btn = gtk_button_new_with_label(" ... ");
+-	gtk_button_set_relief (GTK_BUTTON (btn), GTK_RELIEF_NONE);
+-	gtk_box_pack_start(GTK_BOX(hbox), btn, TRUE, TRUE, 1);
+-	g_signal_connect(btn, "clicked", G_CALLBACK(btn_clicked), (gpointer)XFCE_ICON_CATEGORY_EXTERN);
+-	g_signal_connect_swapped(btn, "clicked", G_CALLBACK(gtk_widget_hide), (gpointer)_icon_window);
+-	gtk_widget_show(btn);
+-	gtk_widget_show(hbox);
+-
+-	return _icon_window;
+-}
+-
+-
+ void
+-show_icon_window( GtkTreeView *treeview, GtkTreePath *arg1,
+-								GtkTreeViewColumn *arg2, gpointer user_data)
++show_icon_window( GtkTreeView *treeview, GtkTreePath *path,
++		GtkTreeViewColumn *column, gpointer user_data)
+ {
+-	if (gtk_tree_view_get_column(treeview, 0) == arg2)
+-	{
+-		gtk_window_set_position(GTK_WINDOW(_icon_window), GTK_WIN_POS_MOUSE);
+-		gtk_window_set_modal(GTK_WINDOW(_icon_window), TRUE);
+-		gtk_widget_show(_icon_window);
+-	}
+-}
++  t_launcher *launcher = (t_launcher *)user_data;
++  GtkTreeModel *treemodel = gtk_tree_view_get_model (treeview);
++  GtkTreeIter iter;
++  GtkWidget *toplevel;
++  GtkWidget *chooser;
++  gchar     *icon;
++
++  g_return_if_fail (gtk_tree_view_get_column(treeview, 0) == column);
++  g_return_if_fail (launcher != NULL);
++  g_return_if_fail (treemodel != NULL);
++  g_return_if_fail (gtk_tree_model_get_iter(treemodel, &iter, path));
++
++  /* determine the toplevel widget */
++  toplevel = gtk_widget_get_toplevel (GTK_WIDGET(treeview));
++  if (toplevel == NULL || !GTK_WIDGET_TOPLEVEL (toplevel))
++    return;
++
++  /* allocate the icon chooser dialog */
++  chooser = exo_icon_chooser_dialog_new (_("Select an icon"),
++                                         GTK_WINDOW (toplevel),
++                                         GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
++                                         GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
++                                         NULL);
++  gtk_dialog_set_default_response (GTK_DIALOG (chooser), GTK_RESPONSE_ACCEPT);
++  gtk_dialog_set_alternative_button_order (GTK_DIALOG (chooser),
++                                           GTK_RESPONSE_ACCEPT,
++                                           GTK_RESPONSE_CANCEL,
++                                           -1);
++
++  /* check if we have an icon to set for the chooser */
++  if (G_LIKELY (!exo_str_is_empty (launcher->icon_name)))
++    exo_icon_chooser_dialog_set_icon (EXO_ICON_CHOOSER_DIALOG (chooser), launcher->icon_name);
++
++  /* run the chooser dialog */
++  if (gtk_dialog_run (GTK_DIALOG (chooser)) == GTK_RESPONSE_ACCEPT)
++    {
++      GdkPixbuf *pixbuf = NULL;
++      /* remember the selected icon from the chooser */
++      icon = exo_icon_chooser_dialog_get_icon (EXO_ICON_CHOOSER_DIALOG (chooser));
++      if (launcher->icon_name)
++        g_free(launcher->icon_name);
++      launcher->icon_name = icon;
++      launcher_update_icon(launcher, _dlg->quicklauncher->icon_size);
++      pixbuf = _create_pixbuf(icon, 16);
++      gtk_list_store_set(GTK_LIST_STORE(treemodel), &iter, 0, pixbuf, -1);
++      UNREF(pixbuf);
++    }
+ 
+-gchar* get_icon_file()
+-{
+-	GtkWidget *chooser, *img;
+-	FileFilter *filter;
+-	gchar *result = NULL;
+-	chooser = file_chooser_new(_("Open icon"), GTK_WINDOW(_icon_window), FILE_CHOOSER_ACTION_OPEN,
+-												  GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+-		      									  GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT, NULL);
+-	/*Preview widget*/
+-	img = gtk_image_new();
+-	gtk_widget_set_size_request(img, 96, 96);
+-	gtk_widget_show(img);
+-	file_chooser_set_preview_widget(FILE_CHOOSER(chooser), img);
+-	file_chooser_set_preview_widget_active(FILE_CHOOSER(chooser), FALSE);
+-	file_chooser_set_preview_callback(FILE_CHOOSER(chooser),
+-									file_chooser_preview_img, (gpointer)img);
+-
+-	file_chooser_get_local_only(FILE_CHOOSER(chooser));
+-	file_chooser_set_select_multiple(FILE_CHOOSER(chooser), FALSE);
+-	filter = file_filter_new();
+-	if (filter){
+-		file_filter_set_name(filter, "image");
+-		file_filter_add_mime_type(filter, "image/*");
+-		file_chooser_add_filter(FILE_CHOOSER(chooser), filter);
+-	}
+-	file_chooser_set_current_folder(FILE_CHOOSER(chooser), "/usr/share/pixmaps");//Maybe can be changed...
+-	gtk_window_set_modal(GTK_WINDOW(chooser), TRUE);
+-	gtk_window_set_transient_for(GTK_WINDOW(chooser),  _gtk_widget_get_parent_gtk_window(_dlg->vbox) );
+-	if(gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT)
+-		result = file_chooser_get_filename(FILE_CHOOSER(chooser));
+-
+-	gtk_widget_destroy(img);
+-	gtk_widget_destroy(chooser);
+-
+-	return result;
++  /* destroy the chooser */
++  gtk_widget_destroy (chooser);
+ }
+ 
+-//Callback functions
+-//******************************************************************************
+-void
+-btn_clicked(GtkButton *button, gpointer icon_id)
+-{
+-	GtkTreeModel *treemodel;
+-	GtkTreeIter iter;
+-	GdkPixbuf *pixbuf;
+-	GtkTreeSelection *sel;
+-	gchar *icon_name = NULL;
+-	t_launcher *launcher;
+-
+-	sel = gtk_tree_view_get_selection( GTK_TREE_VIEW(_dlg->treeview1) );
+-	if ( gtk_tree_selection_get_selected(sel, &treemodel, &iter) )
+-	{
+-		gtk_tree_model_get(treemodel, &iter, 3, &launcher, -1);
+-		if ( (gint)icon_id == XFCE_ICON_CATEGORY_EXTERN )
+-		{
+-			gtk_window_set_modal(GTK_WINDOW(_icon_window), FALSE);
+-			gtk_widget_hide(GTK_WIDGET(_icon_window));
+-			icon_name = get_icon_file();
+-			//gtk_widget_show(GTK_WIDGET(_icon_window)); //useless
+-			if (icon_name)
+-			{
+-				if (launcher->icon_name)
+-					g_free(launcher->icon_name);
+-				launcher->icon_name = icon_name;
+-				launcher->icon_id = (gint)icon_id;
+-			}
+-		}else
+-			launcher->icon_id = (gint)icon_id;
+-		launcher_update_icon(launcher, _dlg->quicklauncher->icon_size);
+-		pixbuf = _create_pixbuf(launcher->icon_id, icon_name, 16);
+-		gtk_list_store_set(GTK_LIST_STORE(treemodel), &iter, 0, pixbuf, -1);
+-		UNREF(pixbuf);
+-	}
+-}
+ 
+ void on_spin_value_changed(GtkSpinButton *spinbutton, gpointer user_data)
+ {
+@@ -411,10 +339,10 @@
+ 	GdkPixbuf *pixbuf;
+ 	t_launcher *launcher; 
+ 	
+-	launcher = launcher_new(NULL, NULL, XFCE_ICON_CATEGORY_UNKNOWN, NULL, _dlg->quicklauncher);
++	launcher = launcher_new(NULL, NULL, "xfce-unknown", _dlg->quicklauncher);
+ 	treemodel = gtk_tree_view_get_model(GTK_TREE_VIEW(_dlg->treeview1));
+ 	gtk_list_store_insert(GTK_LIST_STORE(treemodel), &iter, INT_MAX); //INT_MAX must be enough ;-)
+-	pixbuf = xfce_themed_icon_load_category(XFCE_ICON_CATEGORY_UNKNOWN, 16);
++	pixbuf = _create_pixbuf("xfce-unknown", 16);
+ 	gtk_list_store_set(GTK_LIST_STORE(treemodel), &iter, 0, pixbuf, 1, NULL,
+ 												2, NULL, 3, (gpointer)launcher, -1);
+ 	UNREF(pixbuf);
+diff -ur xfce4-quicklauncher-plugin-1.9.4-orig/panel-plugin/main.c xfce4-quicklauncher-plugin-1.9.4/panel-plugin/main.c
+--- xfce4-quicklauncher-plugin-1.9.4-orig/panel-plugin/main.c	2011-03-01 11:20:38.234067640 +0100
++++ xfce4-quicklauncher-plugin-1.9.4/panel-plugin/main.c	2011-03-02 12:28:47.030548764 +0100
+@@ -320,17 +318,17 @@
+ 	quicklauncher->has_labels = FALSE;
+ 	quicklauncher->has_tooltips = TRUE;
+ 
+-	launcher = launcher_new(_("Lock"), "xflock4", XFCE_ICON_CATEGORY_SYSTEM,
+-							NULL, quicklauncher);
++	launcher = launcher_new(_("Lock"), "xflock4", "applications-system",
++							quicklauncher);
+ 	quicklauncher_add_element(quicklauncher, launcher);
+-	launcher = launcher_new(_("Parameters"),"xfce4-settings-manager", XFCE_ICON_CATEGORY_SETTINGS,
+-							NULL, quicklauncher);
++	launcher = launcher_new(_("Parameters"),"xfce4-settings-manager",
++							"preferences-desktop", quicklauncher);
+ 	quicklauncher_add_element(quicklauncher, launcher);
+-	launcher = launcher_new(_("Applications"), "xfce4-appfinder", XFCE_ICON_CATEGORY_UTILITY,
+-							NULL, quicklauncher);
++	launcher = launcher_new(_("Applications"), "xfce4-appfinder",
++							"applications-utilities", quicklauncher);
+ 	quicklauncher_add_element(quicklauncher, launcher);
+-	launcher = launcher_new(_("Help"), "xfhelp4", XFCE_ICON_CATEGORY_HELP,
+-							NULL, quicklauncher);
++	launcher = launcher_new(_("Help"), "xfhelp4", "system-help",
++							quicklauncher);
+ 	quicklauncher_add_element(quicklauncher, launcher);
+ 	//g_return_if_fail(quicklauncher->nb_launcher == 4);
+ }
+@@ -431,16 +429,15 @@
+ 
+ //TO DO: support icon by name
+ GdkPixbuf *
+-_create_pixbuf(gint id, const gchar* name, gint size)
++_create_pixbuf(const gchar* name, gint size)
+ {
+-	DBG ("id: %d" , id);
++	DBG ("name: %s" , name);
+ 	GdkPixbuf  *pixbuf = NULL;
+-	if(id != XFCE_ICON_CATEGORY_EXTERN)
+-		pixbuf = xfce_themed_icon_load_category(id, size);
+-	else
+-		pixbuf = gdk_pixbuf_new_from_file_at_size(name, size, size, NULL);
++	pixbuf = gtk_icon_theme_load_icon ( gtk_icon_theme_get_default(), name,
++			size, GTK_ICON_LOOKUP_GENERIC_FALLBACK, NULL);
+ 	if(!pixbuf)
+-		pixbuf = xfce_themed_icon_load_category(XFCE_ICON_CATEGORY_UNKNOWN, size);
++		pixbuf = gtk_icon_theme_load_icon ( gtk_icon_theme_get_default(), "xfce-unknown",
++				size, GTK_ICON_LOOKUP_GENERIC_FALLBACK, NULL);
+ 	return pixbuf;
+ }
+ 
+@@ -464,7 +461,7 @@
+ 		if(launcher->quicklauncher->_last_zoomed_launcher == launcher)
+ 		{
+ 			g_return_val_if_fail(launcher->clicked_img, FALSE);
+-			xfce_exec(launcher->command, FALSE, FALSE, NULL);
++			xfce_spawn_command_line_on_screen(gtk_widget_get_screen (box), launcher->command, FALSE, FALSE, NULL);
+ 			gtk_image_set_from_pixbuf (GTK_IMAGE(launcher->image), launcher->def_img);
+ 		}
+ 		else
+@@ -501,7 +498,7 @@
+ 	UNREF(launcher->def_img);
+ 	UNREF(launcher->zoomed_img); launcher->zoomed_img = NULL;
+ 	UNREF(launcher->clicked_img); launcher->clicked_img = NULL;
+-	launcher->def_img = _create_pixbuf(launcher->icon_id, launcher->icon_name, size);
++	launcher->def_img = _create_pixbuf(launcher->icon_name, size);
+ 	if (launcher->def_img)
+ 		gtk_image_set_from_pixbuf(GTK_IMAGE(launcher->image), launcher->def_img);
+ 	gtk_widget_set_size_request(launcher->box, launcher->quicklauncher->has_labels?-1:size, size); 
+@@ -571,7 +568,7 @@
+ }
+ 
+ 
+-t_launcher *launcher_new (const gchar *name, const gchar *command, gint icon_id,
++t_launcher *launcher_new (const gchar *name, const gchar *command,
+ 						const gchar *icon_name, t_quicklauncher* quicklauncher)
+ {
+ 	t_launcher *launcher;
+@@ -583,7 +580,6 @@
+ 	if(command)
+ 		launcher->command = g_strdup(command);
+ 	else launcher->command = NULL;
+-	launcher->icon_id = icon_id;
+ 	if (icon_name)
+ 		launcher->icon_name = g_strdup(icon_name);
+ 	else launcher->icon_name = NULL;
+@@ -616,7 +612,6 @@
+ 	xfce_rc_set_group(rcfile, group);
+ 	launcher = launcher_new(xfce_rc_read_entry(rcfile, "name", NULL),
+ 							xfce_rc_read_entry(rcfile, "command", NULL),
+-							xfce_rc_read_int_entry(rcfile, "icon_id", 0),
+ 							xfce_rc_read_entry(rcfile, "icon_name", NULL),
+ 							quicklauncher);
+ 	return launcher;
+@@ -636,6 +631,5 @@
+ 		xfce_rc_write_entry(rcfile, "name", launcher->name);
+ 	if(launcher->icon_name)
+ 		xfce_rc_write_entry(rcfile, "icon_name", launcher->icon_name);
+-	xfce_rc_write_int_entry(rcfile, "icon_id", launcher->icon_id);
+ 	xfce_rc_flush(rcfile);
+ }
+diff -ur xfce4-quicklauncher-plugin-1.9.4-orig/panel-plugin/Makefile.am xfce4-quicklauncher-plugin-1.9.4/panel-plugin/Makefile.am
+--- xfce4-quicklauncher-plugin-1.9.4-orig/panel-plugin/Makefile.am	2006-11-21 13:27:30.000000000 +0100
++++ xfce4-quicklauncher-plugin-1.9.4/panel-plugin/Makefile.am	2011-03-02 11:59:53.907902523 +0100
+@@ -18,12 +18,14 @@
+ 
+ libquicklauncher_la_CFLAGS =							\
+ 	-DPACKAGE_LOCALE_DIR=\"$(localedir)\"				\
++	@EXO_CFLAGS@		\
+ 	@LIBXFCE4PANEL_CFLAGS@		\
+-	@LIBXFCEGUI4_CFLAGS@
++	@LIBXFCE4UI_CFLAGS@
+ 
+ libquicklauncher_la_LIBADD = 							\
++	@EXO_LIBS@		\
+ 	@LIBXFCE4PANEL_LIBS@		\
+-	@LIBXFCEGUI4_LIBS@
++	@LIBXFCE4UI_LIBS@
+ 
+ # .desktop file
+ #
+diff -ur xfce4-quicklauncher-plugin-1.9.4-orig/panel-plugin/types.h xfce4-quicklauncher-plugin-1.9.4/panel-plugin/types.h
+--- xfce4-quicklauncher-plugin-1.9.4-orig/panel-plugin/types.h	2007-06-09 22:50:08.000000000 +0200
++++ xfce4-quicklauncher-plugin-1.9.4/panel-plugin/types.h	2011-03-02 12:11:25.124309024 +0100
+@@ -25,8 +25,8 @@
+ 
+ 
+ #include <libxfce4util/libxfce4util.h>
+-#include <libxfcegui4/libxfcegui4.h>
+-#include <libxfce4panel/xfce-panel-plugin.h>
++#include <libxfce4ui/libxfce4ui.h>
++#include <libxfce4panel/libxfce4panel.h>
+ 
+ 
+ #define XFCE_ICON_CATEGORY_STOCK 		(XFCE_N_BUILTIN_ICON_CATEGORIES + 1) //not used yet
+@@ -104,15 +104,14 @@
+ 	gchar *command;
+ 	gchar *name;
+ 	gchar *icon_name;
+-	gint icon_id;
+ 	t_quicklauncher *quicklauncher;
+ };
+ 
+ 
+ GdkPixbuf *
+-_create_pixbuf(gint id, const gchar* name, gint size);
++_create_pixbuf(const gchar* name, gint size);
+ 
+-t_launcher *launcher_new (const gchar *name, const gchar *command, gint icon_id,
++t_launcher *launcher_new (const gchar *name, const gchar *command,
+ 						const gchar *icon_name, t_quicklauncher* quicklauncher);
+ void launcher_free (t_launcher *launcher);
+ void launcher_update_icon(t_launcher *launcher, gint size);
