@@ -16,7 +16,7 @@ URL:		http://goodies.xfce.org/projects/panel-plugins/xfce4-quicklauncher-plugin
 BuildRequires:	autoconf
 BuildRequires:	automake
 BuildRequires:	exo-devel >= 0.6.0
-BuildRequires:	gettext-devel
+BuildRequires:	gettext-tools
 BuildRequires:	intltool
 BuildRequires:	libtool
 BuildRequires:	libxfce4ui-devel
