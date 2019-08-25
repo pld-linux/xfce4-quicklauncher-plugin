@@ -2,10 +2,10 @@ Summary:	Multiline launcher plugin for Xfce panel
 Summary(pl.UTF-8):	Wieloliniowa wtyczka do uruchamiania dla panelu Xfce
 Name:		xfce4-quicklauncher-plugin
 Version:	1.9.4
-Release:	8
+Release:	9
 License:	GPL v2+
 Group:		X11/Applications
-Source0:	http://goodies.xfce.org/releases/xfce4-quicklauncher-plugin/%{name}-%{version}.tar.bz2
+Source0:	http://archive.xfce.org/src/panel-plugins/xfce4-quicklauncher-plugin/1.9/%{name}-%{version}.tar.bz2
 # Source0-md5:	299e17f196ecfa5fb018cf65abb19b56
 Patch0:		%{name}-missing-english-translation.patch
 Patch2:		%{name}-parameters-launcher.patch
